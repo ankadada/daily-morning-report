@@ -20,10 +20,18 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Generate and send report
+      - name: Generate report
+        id: report
         env:
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+          CITY: ${{ secrets.CITY || '深圳' }}
         run: |
-          python scripts/generate_report.py --city ${{ secrets.CITY || '深圳' }} | python scripts/send_feishu_card.py --stdin
+          python scripts/generate_report.py --city $CITY > /tmp/report.json
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/report.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send via webhook
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+        run: |
+          echo '${{ steps.report.outputs.report }}' | python scripts/send_webhook.py --stdin
