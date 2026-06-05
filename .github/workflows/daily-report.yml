@@ -20,18 +20,9 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Generate report
-        id: report
+      - name: Generate and send report
         env:
           CITY: ${{ secrets.CITY || '深圳' }}
-        run: |
-          python scripts/generate_report.py --city $CITY > /tmp/report.json
-          echo "report<<EOF" >> $GITHUB_OUTPUT
-          cat /tmp/report.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Send via webhook
-        env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
         run: |
-          echo '${{ steps.report.outputs.report }}' | python scripts/send_webhook.py --stdin
+          python3 scripts/generate_report.py --city "$CITY" | python3 scripts/send_webhook.py --stdin
