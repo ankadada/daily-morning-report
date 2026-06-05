@@ -19,23 +19,27 @@ import requests
 def build_card(data: dict) -> dict:
     """组装飞书卡片 JSON 2.0"""
     date_str = data.get("date", "")
-    city = data.get("city", "深圳")
-    weather = data.get("weather", {})
+    weathers = data.get("weathers", [])
     news = data.get("news", [])
     suggestions = data.get("suggestions", "")
     daily_quote = data.get("daily_quote", "")
     is_workday = data.get("is_workday", True)
 
-    # 天气信息
-    temp = weather.get("temperature", "N/A")
-    weather_desc = weather.get("description", "N/A")
-    humidity = weather.get("humidity", "N/A")
-    wind = weather.get("wind_speed", "N/A")
+    # 天气信息（支持多城市）
+    weather_lines = []
+    for w in weathers:
+        if "error" in w:
+            weather_lines.append(f"**📍 {w['city']}**: 获取失败")
+        else:
+            weather_lines.append(
+                f"**📍 {w['city']}** | **🌡️ {w['temperature']}°C** | **🌤️ {w['condition']}** | **💧 {w['humidity']}%**"
+            )
+    weather_text = "\n".join(weather_lines) if weather_lines else "暂无天气信息"
 
     # 新闻列表
     news_lines = []
     for i, item in enumerate(news[:8], 1):
-        title = item.get("title", "")
+        title = item.get("title", "") if isinstance(item, dict) else item
         if title:
             news_lines.append(f"**{i}.** {title}")
 
@@ -48,6 +52,35 @@ def build_card(data: dict) -> dict:
     quote_text = daily_quote if daily_quote else ""
 
     # 构建卡片
+    elements = [
+        {
+            "tag": "markdown",
+            "content": weather_text
+        },
+        {
+            "tag": "hr"
+        },
+        {
+            "tag": "markdown",
+            "content": f"**📰 今日新闻**\n\n{news_text}"
+        },
+        {
+            "tag": "hr"
+        },
+        {
+            "tag": "markdown",
+            "content": f"**💡 AI 建议**\n\n{suggestions_text}"
+        }
+    ]
+
+    # 添加每日一句
+    if quote_text:
+        elements.append({"tag": "hr"})
+        elements.append({
+            "tag": "markdown",
+            "content": f"**📝 每日一句**\n\n{quote_text}"
+        })
+
     card = {
         "msg_type": "interactive",
         "card": {
@@ -63,39 +96,10 @@ def build_card(data: dict) -> dict:
                 "template": "purple"
             },
             "body": {
-                "elements": [
-                    {
-                        "tag": "markdown",
-                        "content": f"**📍 {city}** | **🌡️ {temp}°C** | **🌤️ {weather_desc}** | **💧 {humidity}%** | **💨 {wind} km/h**"
-                    },
-                    {
-                        "tag": "hr"
-                    },
-                    {
-                        "tag": "markdown",
-                        "content": f"**📰 今日新闻**\n\n{news_text}"
-                    },
-                    {
-                        "tag": "hr"
-                    },
-                    {
-                        "tag": "markdown",
-                        "content": f"**💡 AI 建议**\n\n{suggestions_text}"
-                    }
-                ]
+                "elements": elements
             }
         }
     }
-
-    # 添加每日一句
-    if quote_text:
-        card["card"]["body"]["elements"].append({
-            "tag": "hr"
-        })
-        card["card"]["body"]["elements"].append({
-            "tag": "markdown",
-            "content": f"**📝 每日一句**\n\n{quote_text}"
-        })
 
     return card
 
